@@ -44,6 +44,11 @@ RUN curl -fsSL https://deb.nodesource.com/setup_14.x | sudo -E bash - && \
 # Install Yarn
 RUN npm install -g yarn
 
+# Configure MySQL for root password access
+RUN service mysql start && \
+    mysql -u root -e "UPDATE mysql.user SET plugin = 'mysql_native_password' WHERE User = 'root'; FLUSH PRIVILEGES;" && \
+    mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'root'; FLUSH PRIVILEGES;"
+
 # Create a user for ERPNext
 RUN useradd -m -s /bin/bash erpnext && \
     usermod -aG sudo erpnext && \
@@ -53,8 +58,10 @@ RUN useradd -m -s /bin/bash erpnext && \
 USER erpnext
 WORKDIR /home/erpnext
 
-# Initialize Bench and create a new site
-RUN bench init frappe-bench --frappe-branch version-14 && \
+# Start MariaDB and Redis services, initialize Bench, and create a new site
+RUN sudo service mysql start && \
+    redis-server --daemonize yes && \
+    bench init frappe-bench --frappe-branch version-14 && \
     cd frappe-bench && \
     bench new-site --mariadb-root-password root --admin-password admin localhost
 
